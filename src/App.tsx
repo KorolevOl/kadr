@@ -59,7 +59,7 @@ async function writeAndConfirm(path: string) {
     void rememberProject(path)
     // fragments follow the project: loose workspace folders move next to
     // the .kadr file (first save, save-as to a new place)
-    void syncProjectFragments(s.project, path)
+    if (window.kadr.platform !== 'tauri') void syncProjectFragments(s.project, path)
   } catch (err) {
     flashSave('saveError', String(err), true)
   }
@@ -97,13 +97,14 @@ export async function openProjectAt(path: string) {
   void rememberProject(path)
   // restore workspace symlinks for fragments living next to the .kadr file
   // (project moved from another machine / cleaned workspace)
-  void syncProjectFragments(useEditor.getState().project, path)
+  if (window.kadr.platform !== 'tauri') void syncProjectFragments(useEditor.getState().project, path)
 }
 
 const TL_MIN = 160
 
 export default function App() {
   const t = useT()
+  const electronServices = window.kadr.platform !== 'tauri'
   const name = useEditor((s) => s.project.name)
   const project = useEditor((s) => s.project)
   const savedProject = useSaveUi((s) => s.savedProject)
@@ -353,7 +354,7 @@ export default function App() {
                 onClick={() => useEditor.getState().setExportOpen(true)}>
           <Icon name="download" /> {t('export')}
         </button>
-        <button
+        {electronServices && <button
           className={`icon-only log-btn${storageOpen ? ' active' : ''}`}
           data-act="storage"
           title={t('stBtn')}
@@ -361,7 +362,7 @@ export default function App() {
           onClick={() => setStorageOpen((v) => !v)}
         >
           <Icon name="layers" />
-        </button>
+        </button>}
         <button
           className={`icon-only log-btn${logUnseen ? ' has-news' : ''}${debugOpen ? ' active' : ''}`}
           data-act="debug"
@@ -372,7 +373,7 @@ export default function App() {
           <Icon name="terminal" />
           {logUnseen > 0 && <span className="log-badge">{logUnseen > 99 ? '99+' : logUnseen}</span>}
         </button>
-        <span className="bar-group">
+        {electronServices && <span className="bar-group">
           <button className={assistant ? 'claude-btn active' : 'claude-btn'} data-act="claude"
                   title={t('claudeTitle')} onClick={toggleAssistant}>
             <Icon name="bot" /> AI
@@ -381,7 +382,7 @@ export default function App() {
                   aria-label={t('aiSettings')} onClick={() => setAiDialog('settings')}>
             <Icon name="settings" />
           </button>
-        </span>
+        </span>}
         <LangSwitch />
       </div>
       <div className="main-row">
@@ -405,16 +406,18 @@ export default function App() {
       <div className="v-resizer" onPointerDown={startResize} title={t('resizeRows')} />
       <Timeline height={tlHeight} />
       <ExportDialog />
-      <TranscribeDialog />
       <SubtitlePanel />
-      <CaptionsDialog />
-      <NeonWaveDialog />
-      <BeatsDialog />
-      <ChecksDialog />
-      <SoundsDialog />
-      <TtsSettingsDialog />
-      <SpeakDialog />
-      <DefectsDialog />
+      {electronServices && <>
+        <TranscribeDialog />
+        <CaptionsDialog />
+        <NeonWaveDialog />
+        <BeatsDialog />
+        <ChecksDialog />
+        <SoundsDialog />
+        <TtsSettingsDialog />
+        <SpeakDialog />
+        <DefectsDialog />
+      </>}
       {assistant && <ClaudePanel provider={assistant} onClose={() => setAssistant(null)} />}
       {aiDialog && (
         <div className="ai-dialog">

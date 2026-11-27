@@ -14,6 +14,6 @@
       "@shared/*": ["shared/*"]
     }
   },
-  "include": ["electron", "shared", "electron.vite.config.ts"],
+  "include": ["electron", "shared", "electron.vite.config.ts", "vite.tauri.config.ts", "scripts/tauri/media-worker.ts"],
   "exclude": ["electron/fragment-kit"]
 }

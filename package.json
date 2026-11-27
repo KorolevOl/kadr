@@ -9,6 +9,11 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build --target x86_64-pc-windows-msvc",
+    "tauri:ui:dev": "node scripts/tauri/prepare.mjs && vite --config vite.tauri.config.ts",
+    "tauri:ui:build": "node scripts/tauri/prepare.mjs && vite build --config vite.tauri.config.ts",
     "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json",
     "postinstall": "node scripts/rebuild-pty.mjs"
   },
@@ -30,6 +35,8 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.4",
+    "@tauri-apps/api": "^2.12.5",
+    "@tauri-apps/cli": "^2.12.6",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",

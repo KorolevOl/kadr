@@ -11,6 +11,7 @@ import { useModelsUi, insertModelFragment, prepareForFragment } from '@/engine/m
 
 export function MediaBin() {
   const t = useT()
+  const electronServices = window.kadr.platform !== 'tauri'
   const assets = useEditor((s) => s.project.assets)
   const texts = useEditor((s) => s.project.texts ?? [])
   const ttsReady = useTtsUi((s) => s.hasKey)
@@ -144,7 +145,7 @@ export function MediaBin() {
                 P
               </div>
             ) : null}
-            {a.hasAudio && (
+            {electronServices && a.hasAudio && (
               <button
                 className="tr-badge"
                 title={t('transcribe')}
@@ -157,7 +158,7 @@ export function MediaBin() {
                 <Icon name="captions" size={13} />
               </button>
             )}
-            {a.kind === 'video' && (
+            {electronServices && a.kind === 'video' && (
               <button
                 className="tr-badge frag-media-badge"
                 data-act="fragment-media"
@@ -186,7 +187,7 @@ export function MediaBin() {
           </div>
         ))}
       </div>
-      <ModelsSection />
+      {electronServices && <ModelsSection />}
       {confirmIds && (
         <Modal
           title={t('binConfirmTitle')}

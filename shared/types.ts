@@ -1112,6 +1112,7 @@ export interface FragmentParamDecl {
 }
 
 export interface KadrApi {
+  platform?: 'electron' | 'tauri'
   openMediaDialog(): Promise<string[]>
   probeMedia(path: string): Promise<ProbeResult>
   fileUrl(path: string): string

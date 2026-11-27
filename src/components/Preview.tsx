@@ -163,9 +163,9 @@ export function Preview() {
         <div className="preview-canvas-wrap">
           <div className="preview-frame" style={frameStyle}>
             <canvas className="preview-canvas" ref={canvasRef} width={width} height={height} />
-            <FragmentOverlays canvas={canvasRef} />
+            {window.kadr.platform !== 'tauri' && <FragmentOverlays canvas={canvasRef} />}
             <OnionSkin canvas={canvasRef} />
-            <FragmentGizmo canvas={canvasRef} />
+            {window.kadr.platform !== 'tauri' && <FragmentGizmo canvas={canvasRef} />}
             <ClipGizmo canvas={canvasRef} draftRef={clipDraft} />
             {loading && !gpuLost && (
               <div className="preview-loading">
