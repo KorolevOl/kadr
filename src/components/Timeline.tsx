@@ -459,6 +459,16 @@ export function Timeline({ height }: { height: number }) {
 function TrackMenu({ menu, onClose }: { menu: MenuState; onClose: () => void }) {
   const t = useT()
   const selCount = useEditor((s) => s.selection.length)
+  const clipSizeSource = useEditor((s) => {
+    if (menu.kind !== 'clip' || !menu.clipId) return null
+    const found = findClip(s.project, menu.clipId)
+    if (found?.track.kind !== 'video') return null
+    const { clip } = found
+    if (clip.kind === 'remotion') return clip.fragmentMeta ?? null
+    if (!clip.assetId) return null
+    const asset = s.project.assets.find((a) => a.id === clip.assetId)
+    return asset && asset.kind !== 'audio' ? asset : null
+  })
   const transCur = useEditor((s) => {
     if (menu.kind !== 'transition' || !menu.clipId) return null
     const f = findClip(s.project, menu.clipId)
@@ -480,6 +490,20 @@ function TrackMenu({ menu, onClose }: { menu: MenuState; onClose: () => void }) 
     }
     return null
   })
+  const matchClipSize = async () => {
+    if (!clipSizeSource) return
+    const { project, setProjectSize } = useEditor.getState()
+    let { width, height } = clipSizeSource
+    onClose()
+    // Older projects may have stored coded dimensions for rotated phone footage.
+    if ('kind' in clipSizeSource && clipSizeSource.kind === 'video' &&
+        (clipSizeSource.probeV ?? 0) < 2 && !clipSizeSource.rotation) {
+      const basics = await window.kadr.probeBasic(clipSizeSource.path).catch(() => null)
+      if (useEditor.getState().project !== project) return
+      if (basics?.rotation === 90 || basics?.rotation === 270) [width, height] = [height, width]
+    }
+    setProjectSize(width, height)
+  }
   if (menu.kind === 'transition') {
     const pick = (type: string) => {
       useEditor.getState().setTransition(menu.clipId!, type)
@@ -609,6 +633,11 @@ function TrackMenu({ menu, onClose }: { menu: MenuState; onClose: () => void }) 
           >
             {t('animTab')}…
           </button>
+          {clipSizeSource && clipSizeSource.width > 0 && clipSizeSource.height > 0 && (
+            <button data-act="frame-size-from-clip" onClick={() => void matchClipSize()}>
+              {t('sizeFromClip')}
+            </button>
+          )}
           {(() => {
             const p = useEditor.getState().project
             const f = findClip(p, menu.clipId!)

@@ -20,7 +20,7 @@ export function ExportDialog() {
   const t = useT()
   const open = useEditor((s) => s.exportOpen)
   const range = useEditor((s) => s.range)
-  const [presetId, setPresetId] = useState(PRESETS[0].id)
+  const [presetId, setPresetId] = useState('source')
   const [motionBlur, setMotionBlur] = useState(true)
   const [frameBlending, setFrameBlending] = useState(true)
   const [fastEncoder, setFastEncoder] = useState(false)

@@ -175,8 +175,11 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      const target = e.target as HTMLElement | null
+      const tag = target?.tagName
+      const formatHistory = target?.dataset?.act === 'frame-format' && e.ctrlKey &&
+        (e.code === 'KeyZ' || e.code === 'KeyY')
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (tag === 'SELECT' && !formatHistory)) return
       // a dialog owns the keyboard while it is open: Space on one of its
       // buttons used to press the button AND start playback behind it
       if (modalsOpen()) return

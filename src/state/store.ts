@@ -516,6 +516,7 @@ interface EditorState {
 
   setProject(p: Project, path?: string | null): void
   setProjectPath(path: string | null): void
+  setProjectSize(width: number, height: number): void
   /** Snapshot current project; call once before a discrete edit or drag. */
   pushHistory(label: string): void
   undo(): void
@@ -723,6 +724,13 @@ export const useEditor = create<EditorState>((set, get) => ({
       selection: [], playhead: 0, playing: false, range: null
     }),
   setProjectPath: (projectPath) => set({ projectPath }),
+  setProjectSize: (width, height) => {
+    if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1) return
+    const s = get()
+    if (s.project.width === width && s.project.height === height) return
+    s.pushHistory('hProjectSize')
+    set((st) => ({ project: { ...st.project, width, height } }))
+  },
 
   pushHistory: (label) =>
     set((s) => ({
