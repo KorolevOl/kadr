@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Anim, Clip, Keyframe, MaskShape, MaskShapeType } from '@shared/types'
 import { useEditor, findClip, usePosePresets, type PosePreset } from '@/state/store'
 import { evalAnim } from '@/engine/anim'
+import { fittedLayerSize, manualClipSize } from '@/engine/layerGeometry'
 import { videoLayersAt } from '@/engine/player'
 import { useT, type TKey } from '@/i18n'
 import { Icon, type IconName } from './icons'
@@ -259,11 +260,9 @@ export function AnimEditor({ width }: { width: number }) {
     mB: val(MASK_PARAMS[3])
   }
 
-  const srcW = asset && asset.width ? asset.width : projW
-  const srcH = asset && asset.height ? asset.height : projH
-  const fit = Math.min(projW / srcW, projH / srcH)
-  const layerW = Math.max(8, srcW * fit * cur.scale * k)
-  const layerH = Math.max(8, srcH * fit * cur.scale * k)
+  const size = manualClipSize(clip) ?? fittedLayerSize(projW, projH, asset?.width || projW, asset?.height || projH)
+  const layerW = Math.max(8, size.width * cur.scale * k)
+  const layerH = Math.max(8, size.height * cur.scale * k)
   const cx = stageW / 2 + cur.x * k
   const cy = stageH / 2 + cur.y * k
   const frameW = projW * k
@@ -295,21 +294,20 @@ export function AnimEditor({ width }: { width: number }) {
   /** snap anchors from the frame corners/center and other layers in the scene */
   const buildMoveSnaps = () => {
     const st = useEditor.getState()
-    const hw = (srcW * fit * cur.scale) / 2
-    const hh = (srcH * fit * cur.scale) / 2
+    const hw = (size.width * cur.scale) / 2
+    const hh = (size.height * cur.scale) / 2
     const ax = [-projW / 2, 0, projW / 2]
     const ay = [-projH / 2, 0, projH / 2]
     for (const l of videoLayersAt(st.project, st.playhead)) {
       if (l.clip.id === clip.id) continue
       const lr = st.playhead - l.clip.start
-      const lw = l.asset?.width || projW
-      const lh = l.asset?.height || projH
-      const lfit = Math.min(projW / lw, projH / lh)
+      const otherSize = manualClipSize(l.clip) ??
+        fittedLayerSize(projW, projH, l.asset?.width || projW, l.asset?.height || projH)
       const ls = evalAnim(l.clip.transform.scale, lr)
       const lx = evalAnim(l.clip.transform.x, lr)
       const ly = evalAnim(l.clip.transform.y, lr)
-      ax.push(lx - (lw * lfit * ls) / 2, lx, lx + (lw * lfit * ls) / 2)
-      ay.push(ly - (lh * lfit * ls) / 2, ly, ly + (lh * lfit * ls) / 2)
+      ax.push(lx - (otherSize.width * ls) / 2, lx, lx + (otherSize.width * ls) / 2)
+      ay.push(ly - (otherSize.height * ls) / 2, ly, ly + (otherSize.height * ls) / 2)
     }
     const candX = ax.flatMap((a) => [a + hw, a, a - hw])
     const candY = ay.flatMap((a) => [a + hh, a, a - hh])

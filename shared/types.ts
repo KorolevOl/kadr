@@ -68,7 +68,7 @@ export interface Anim {
 export interface ClipTransform {
   x: Anim // offset from center, in project px
   y: Anim
-  scale: Anim // 1 = fit project frame
+  scale: Anim // 1 = the clip's fitted or manually set size
   rotation: Anim // degrees (Z axis)
   opacity: Anim // 0..1
   /** 3D mode (perspective): tilt around the X/Y axes and depth offset */
@@ -163,6 +163,10 @@ export interface Clip {
   gain: Anim // audio gain 0..2
   muted: boolean
   transform: ClipTransform
+  /** Media on a video track. Width and height are project pixels before the
+   * animated scale. Missing means auto-fit, and toggling auto-fit keeps the
+   * last manual size available. */
+  frameSize?: { autoFit: boolean; width: number; height: number }
   mask?: ClipMask
   /** legacy single shape — superseded by maskShapes */
   maskShape?: MaskShape

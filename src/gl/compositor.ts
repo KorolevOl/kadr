@@ -4,6 +4,7 @@ import { transitionGlsl } from './transitions'
 import { edgeGlsl } from './edges'
 import { GLOW_FIELD_FS, GLOW_FS, type GlowParams } from './glow'
 import { logError } from '@/engine/log'
+import { fittedLayerSize, layerProjection, projectLayerPoint, type LayerTransform } from '@/engine/layerGeometry'
 
 const VS = `#version 300 es
 layout(location=0) in vec3 aPos;   // NDC xy premultiplied by w, plus w
@@ -189,7 +190,7 @@ void main() {
   outColor = acc / wsum;
 }`
 
-export interface LayerDraw {
+export interface LayerDraw extends LayerTransform {
   source: TexImageSource | null
   /** raw BGRA premultiplied pixels (fragment capture) instead of `source` */
   raw?: { data: Uint8Array; w: number; h: number; version: number }
@@ -202,25 +203,9 @@ export interface LayerDraw {
   dynamic: boolean
   srcWidth: number
   srcHeight: number
-  x: number
-  y: number
-  scale: number
-  rotation: number // degrees (Z)
+  /** Manual size in project pixels, before applying the clip scale. */
+  size?: { width: number; height: number }
   opacity: number
-  /** 3D: tilt angles (degrees) and depth offset in project px */
-  rotX?: number
-  rotY?: number
-  z?: number
-  /** whole-track motion applied after the clip transform */
-  outer?: {
-    x: number
-    y: number
-    scale: number
-    rotation: number
-    rotX: number
-    rotY: number
-    z: number
-  }
   /** cut fractions [left, top, right, bottom], 0..1 */
   crop?: [number, number, number, number]
   shapes?: ShapeUniform[]
@@ -457,14 +442,10 @@ export class Compositor {
     gl.uniform1f(this.uPackHalfTexel, l.alphaPacked ? 0.25 / Math.max(1, l.srcHeight) : 0)
     entry.lastUsed = this.frame
 
-    // fit the source into the project frame, then apply the clip scale
-    const fit = Math.min(this.width / l.srcWidth, this.height / l.srcHeight) * l.scale
-    const w = l.srcWidth * fit
-    const h = l.srcHeight * fit
-    const clipRot = makeRot3(l.rotation, l.rotX ?? 0, l.rotY ?? 0)
-    const outer = l.outer
-    const outerRot = outer ? makeRot3(outer.rotation, outer.rotX, outer.rotY) : null
-    const focal = Math.max(this.width, this.height) * 1.2
+    const { width: w, height: h } = l.size
+      ? { width: l.size.width * l.scale, height: l.size.height * l.scale }
+      : fittedLayerSize(this.width, this.height, l.srcWidth, l.srcHeight, l.scale)
+    const projection = layerProjection(this.width, this.height, l)
 
     // corner order matches TRIANGLE_STRIP: TL, BL, TR, BR
     const data = new Float32Array(20)
@@ -475,33 +456,17 @@ export class Compositor {
       [w / 2, h / 2, 1, 1]
     ]
     corners.forEach(([px, py, u, v], i) => {
-      // clip transform: 3D rotation around the layer center, then offset
-      let P = rotApply(clipRot, px, py, 0)
-      P[0] += l.x
-      P[1] += l.y
-      P[2] += l.z ?? 0
-      // whole-track motion around the project center
-      if (outer && outerRot) {
-        P[0] *= outer.scale
-        P[1] *= outer.scale
-        P[2] *= outer.scale
-        P = rotApply(outerRot, P[0], P[1], P[2])
-        P[0] += outer.x
-        P[1] += outer.y
-        P[2] += outer.z
-      }
+      const { x, y, clipW } = projectLayerPoint(projection, px, py)
       // perspective projection; the clip-space w must be proportional to
       // the eye depth (f+z)/f — not its inverse — or the GPU interpolates
       // the texture with inverted weights and the quad warps internally
-      const wclip = Math.max(0.05, (focal + P[2]) / focal)
-      const pw = 1 / wclip
-      const sx = this.width / 2 + P[0] * pw
-      const sy = this.height / 2 + P[1] * pw
+      const sx = this.width / 2 + x
+      const sy = this.height / 2 + y
       const ndcX = (sx / this.width) * 2 - 1
       const ndcY = 1 - (sy / this.height) * 2
-      data[i * 5] = ndcX * wclip
-      data[i * 5 + 1] = ndcY * wclip
-      data[i * 5 + 2] = wclip
+      data[i * 5] = ndcX * clipW
+      data[i * 5 + 1] = ndcY * clipW
+      data[i * 5 + 2] = clipW
       data[i * 5 + 3] = u
       data[i * 5 + 4] = v
     })
@@ -525,7 +490,7 @@ export class Compositor {
       gl.uniform1iv(this.uShapeType, types)
       gl.uniform4fv(this.uShapeRect, rects)
       gl.uniform3fv(this.uShapeFeather, feathers)
-      gl.uniform1f(this.uAspect, l.srcWidth / Math.max(1, l.srcHeight))
+      gl.uniform1f(this.uAspect, (l.size?.width ?? l.srcWidth) / Math.max(1, l.size?.height ?? l.srcHeight))
     }
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   }
@@ -1023,28 +988,4 @@ function hexToRgb(hex: string | undefined): [number, number, number] {
   const v = parseInt((hex ?? '#000000').replace('#', ''), 16)
   if (!Number.isFinite(v)) return [0, 0, 0]
   return [((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255]
-}
-
-/** Row-major 3×3 rotation: Ry, then Rx, then Rz (angles in degrees). */
-function makeRot3(zDeg: number, xDeg: number, yDeg: number): Float64Array {
-  const az = (zDeg * Math.PI) / 180
-  const ax = (xDeg * Math.PI) / 180
-  const ay = (yDeg * Math.PI) / 180
-  const cz = Math.cos(az), sz = Math.sin(az)
-  const cx = Math.cos(ax), sx = Math.sin(ax)
-  const cy = Math.cos(ay), sy = Math.sin(ay)
-  // R = Rz * Rx * Ry
-  return new Float64Array([
-    cz * cy + sz * sx * sy, -sz * cx, -cz * sy + sz * sx * cy,
-    sz * cy - cz * sx * sy, cz * cx, -sz * sy - cz * sx * cy,
-    cx * sy, sx, cx * cy
-  ])
-}
-
-function rotApply(m: Float64Array, x: number, y: number, z: number): [number, number, number] {
-  return [
-    m[0] * x + m[1] * y + m[2] * z,
-    m[3] * x + m[4] * y + m[5] * z,
-    m[6] * x + m[7] * y + m[8] * z
-  ]
 }

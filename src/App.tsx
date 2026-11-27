@@ -177,9 +177,10 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null
       const tag = target?.tagName
-      const formatHistory = target?.dataset?.act === 'frame-format' && e.ctrlKey &&
-        (e.code === 'KeyZ' || e.code === 'KeyY')
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || (tag === 'SELECT' && !formatHistory)) return
+      const action = target?.dataset?.act
+      const sizingHistory = (action === 'frame-format' || action === 'clip-auto-fit' || action === 'clip-snap-edges') &&
+        e.ctrlKey && (e.code === 'KeyZ' || e.code === 'KeyY')
+      if ((tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') && !sizingHistory) return
       // a dialog owns the keyboard while it is open: Space on one of its
       // buttons used to press the button AND start playback behind it
       if (modalsOpen()) return

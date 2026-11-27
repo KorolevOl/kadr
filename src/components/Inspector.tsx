@@ -1,22 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Anim, Clip, Effect, FragmentInspect, FragmentParamDecl, FxPreset, TextStyle } from '@shared/types'
-import { useEditor, useFxPresets, findClip, uid } from '@/state/store'
+import type { Anim, Clip, Effect, FragmentInspect, FragmentParamDecl, FxPreset, TextStyle, Track } from '@shared/types'
+import { useEditor, useFxPresets, useSettings, findClip, uid } from '@/state/store'
 import { GLOW_DEFAULTS } from '@/gl/glow'
 import { useT } from '@/i18n'
 import { bakeAudio, bakeState, bakePlan } from '@/engine/audioReact'
 import { audibleTracksInRange } from '@/engine/subtitles'
+import { fittedLayerSize, manualClipSize } from '@/engine/layerGeometry'
+import { mediaDisplaySize } from '@/engine/mediaImport'
 import { useFragmentParams, paramValues, setParam, resetParams, rememberParamValues } from '@/engine/fragmentParams'
 import { CtxMenu } from './CtxMenu'
 import { Icon, Spinner } from './icons'
 
 function Num({
-  label, value, step = 1, min, max, onChange
+  label, value, step = 1, min, max, disabled, onChange
 }: {
   label: string
   value: number
   step?: number
   min?: number
   max?: number
+  disabled?: boolean
   onChange: (v: number) => void
 }) {
   return (
@@ -28,6 +31,7 @@ function Num({
         step={step}
         min={min}
         max={max}
+        disabled={disabled}
         onFocus={() => useEditor.getState().pushHistory('hEdit')}
         onChange={(e) => {
           const v = Number(e.target.value)
@@ -49,7 +53,7 @@ export function Inspector() {
         <span>{t('inspector')}</span>
       </div>
       <div className="insp-body">
-        {found ? <ClipProps clip={found.clip} /> : <ProjectProps />}
+        {found ? <ClipProps clip={found.clip} track={found.track} /> : <ProjectProps />}
       </div>
     </div>
   )
@@ -78,14 +82,39 @@ function ProjectProps() {
   )
 }
 
-function ClipProps({ clip }: { clip: Clip }) {
+function ClipProps({ clip, track }: { clip: Clip; track: Track }) {
   const t = useT()
+  const snapClipEdges = useSettings((s) => s.snapClipEdges)
+  const asset = useEditor((s) => track.kind === 'video' && clip.kind === 'media'
+    ? s.project.assets.find((a) => a.id === clip.assetId && a.kind !== 'audio')
+    : undefined)
+  const manualSize = manualClipSize(clip)
   const update = (patch: Partial<Clip>) => useEditor.getState().updateClip(clip.id, patch)
   const setAnim = (key: keyof Clip['transform'], v: number) =>
     update({ transform: { ...clip.transform, [key]: { ...clip.transform[key], value: v } } })
   const setGain = (v: number) => update({ gain: { ...clip.gain, value: v } as Anim })
   const setStyle = (patch: Partial<TextStyle>) =>
     update({ textStyle: { ...clip.textStyle!, ...patch } })
+  const setAutoFit = async (autoFit: boolean) => {
+    if (!asset) return
+    const projectId = useEditor.getState().project.id
+    const source = clip.frameSize ? asset : await mediaDisplaySize(asset)
+    const state = useEditor.getState()
+    const { project, selection } = state
+    const found = selection[0] === clip.id ? findClip(project, clip.id) : null
+    if (project.id !== projectId || !found || found.track.locked || found.clip.assetId !== asset.id ||
+        (found.clip.frameSize?.autoFit ?? true) === autoFit) return
+    const { width, height } = project
+    const sourceWidth = Number.isFinite(source.width) && source.width > 0 ? source.width : width
+    const sourceHeight = Number.isFinite(source.height) && source.height > 0 ? source.height : height
+    const size = found.clip.frameSize ?? fittedLayerSize(width, height, sourceWidth, sourceHeight)
+    state.pushHistory('hEdit')
+    state.updateClip(clip.id, { frameSize: { ...size, autoFit } })
+  }
+  const setSize = (axis: 'width' | 'height', value: number) => {
+    if (manualSize && Number.isFinite(value) && value >= 1)
+      update({ frameSize: { ...manualSize, [axis]: value } })
+  }
 
   return (
     <>
@@ -123,6 +152,26 @@ function ClipProps({ clip }: { clip: Clip }) {
         </>
       )}
       <div className="insp-section">{t('position')}</div>
+      {asset && (
+        <label className="insp-field">
+          <span>{t('clipAutoFit')}</span>
+          <input type="checkbox" data-act="clip-auto-fit" checked={!manualSize}
+            disabled={track.locked} onChange={(e) => void setAutoFit(e.target.checked)} />
+        </label>
+      )}
+      {asset && manualSize && (
+        <>
+          <label className="insp-field">
+            <span>{t('clipSnapEdges')}</span>
+            <input type="checkbox" data-act="clip-snap-edges" checked={snapClipEdges}
+              disabled={track.locked} onChange={(e) => useSettings.getState().setSnapClipEdges(e.target.checked)} />
+          </label>
+          <Num label={t('clipWidth')} value={manualSize.width} min={1}
+            disabled={track.locked} onChange={(v) => setSize('width', v)} />
+          <Num label={t('clipHeight')} value={manualSize.height} min={1}
+            disabled={track.locked} onChange={(v) => setSize('height', v)} />
+        </>
+      )}
       <Num label="X" value={clip.transform.x.value} onChange={(v) => setAnim('x', v)} />
       <Num label="Y" value={clip.transform.y.value} onChange={(v) => setAnim('y', v)} />
       <Num label={t('scale')} value={clip.transform.scale.value} step={0.05} min={0.01} max={20}

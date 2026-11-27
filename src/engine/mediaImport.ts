@@ -2,11 +2,21 @@ import { importModels, isModelPath } from './models'
 import { create } from 'zustand'
 import { useEditor, uid } from '@/state/store'
 import { baseOf } from '@shared/paths'
-import type { TextDoc } from '@shared/types'
+import type { MediaAsset, TextDoc } from '@shared/types'
 import { logError, logWarn } from './log'
 
 /** files/URLs currently being imported (drop or dialog) — drives the '…' hint */
 export const useImportUi = create<{ active: number }>(() => ({ active: 0 }))
+
+/** Older projects may have stored coded dimensions for rotated phone footage. */
+export async function mediaDisplaySize(asset: MediaAsset) {
+  const { width, height } = asset
+  if (asset.kind === 'video' && (asset.probeV ?? 0) < 2 && !asset.rotation) {
+    const basics = await window.kadr.probeBasic(asset.path).catch(() => null)
+    if (basics?.rotation === 90 || basics?.rotation === 270) return { width: height, height: width }
+  }
+  return { width, height }
+}
 
 /**
  * Import files by absolute path: probe each into a bin asset (paths already

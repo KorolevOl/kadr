@@ -198,6 +198,10 @@ export function sanitizeProject(p: Project): Project {
         if (!Number.isFinite(c[k])) c[k] = 0
       if (!Number.isFinite(c.speed) || c.speed <= 0) c.speed = 1
       c.transform = { ...newClipDefaults().transform, ...(c.transform ?? {}) }
+      const size = c.frameSize
+      if (size !== undefined && (!size || typeof size.autoFit !== 'boolean' ||
+          !Number.isFinite(size.width) || size.width <= 0 ||
+          !Number.isFinite(size.height) || size.height <= 0)) delete c.frameSize
       c.gain = anim(c.gain, 1)
       c.effects = sanitizeEffects(c.effects)
       if (c.audioBake !== undefined && !(c.audioBake && typeof c.audioBake.hash === 'string' &&
@@ -316,15 +320,18 @@ interface SettingsState {
   trackH: number
   /** clips, the range and markers snap to detected beats (default on) */
   snapBeats: boolean
+  snapClipEdges: boolean
   setLang(l: 'ru' | 'en'): void
   setTrackH(h: number): void
   setSnapBeats(v: boolean): void
+  setSnapClipEdges(v: boolean): void
 }
 
 export const useSettings = create<SettingsState>((set) => ({
   lang: (localStorage.getItem('kadr.lang') as 'ru' | 'en') || 'ru',
   trackH: Math.min(140, Math.max(32, Number(localStorage.getItem('kadr.trackh')) || 56)),
   snapBeats: localStorage.getItem('kadr.snapBeats') !== '0',
+  snapClipEdges: localStorage.getItem('kadr.snapClipEdges') === '1',
   setLang: (lang) => {
     localStorage.setItem('kadr.lang', lang)
     set({ lang })
@@ -337,6 +344,10 @@ export const useSettings = create<SettingsState>((set) => ({
   setSnapBeats: (snapBeats) => {
     localStorage.setItem('kadr.snapBeats', snapBeats ? '1' : '0')
     set({ snapBeats })
+  },
+  setSnapClipEdges: (snapClipEdges) => {
+    localStorage.setItem('kadr.snapClipEdges', snapClipEdges ? '1' : '0')
+    set({ snapClipEdges })
   }
 }))
 

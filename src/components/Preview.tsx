@@ -5,6 +5,7 @@ import { usePopout } from '@/engine/popout'
 import { useT } from '@/i18n'
 import { useEditor, projectDuration } from '@/state/store'
 import { AudioMeter } from './AudioMeter'
+import { ClipGizmo, type ClipPreviewDraft } from './ClipGizmo'
 import { FragmentOverlays } from './FragmentOverlays'
 import { FragmentGizmo } from './FragmentGizmo'
 import { OnionSkin } from './OnionSkin'
@@ -65,6 +66,7 @@ export function Preview() {
   const loading = useEditor((s) => s.previewLoading)
   const gpuLost = useEditor((s) => s.previewGpuLost)
   const frameDrag = useRef<FrameDrag | null>(null)
+  const clipDraft = useRef<ClipPreviewDraft | null>(null)
   const [draft, setDraft] = useState<ReturnType<typeof frameAt> | null>(null)
 
   useEffect(() => {
@@ -73,7 +75,10 @@ export function Preview() {
     const player = new Player({
       getState: () => {
         const s = useEditor.getState()
-        return { project: s.project, playhead: s.playhead, playing: s.playing }
+        const draft = clipDraft.current
+        const project = !s.playing && draft?.base === s.project &&
+          draft.time === s.playhead && draft.clip.id === s.selection[0] ? draft.project : s.project
+        return { project, playhead: s.playhead, playing: s.playing }
       },
       setPlayhead: (t) => useEditor.getState().setPlayhead(t),
       setPlaying: (p) => useEditor.getState().setPlaying(p),
@@ -161,6 +166,7 @@ export function Preview() {
             <FragmentOverlays canvas={canvasRef} />
             <OnionSkin canvas={canvasRef} />
             <FragmentGizmo canvas={canvasRef} />
+            <ClipGizmo canvas={canvasRef} draftRef={clipDraft} />
             {loading && !gpuLost && (
               <div className="preview-loading">
                 <div className="spinner" />

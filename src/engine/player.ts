@@ -8,6 +8,7 @@ import { getTextLayer } from './text'
 import { attachAudio, detachAudio, setElementGain, isRouted, resumeAudio } from './audio'
 import { logError } from './log'
 import { tipSpans } from './timelineMath'
+import { layerTransformAt, manualClipSize } from './layerGeometry'
 
 export interface ActiveLayer {
   clip: Clip
@@ -438,32 +439,13 @@ function drawClipLayer(
   {
     const rel = t - clip.start
     const m = clip.mask
-    const tr = clip.transform
     const shapes = clip.maskShapes ?? (clip.maskShape ? [clip.maskShape] : [])
     const cropV = (a: { value: number } | undefined) =>
       a ? Math.min(0.5, Math.max(0, evalAnim(a, rel))) : 0
-    const motion = track.motion
     const common = {
-      x: evalAnim(tr.x, rel),
-      y: evalAnim(tr.y, rel),
-      scale: evalAnim(tr.scale, rel),
-      rotation: evalAnim(tr.rotation, rel),
-      rotX: tr.rotX ? evalAnim(tr.rotX, rel) : 0,
-      rotY: tr.rotY ? evalAnim(tr.rotY, rel) : 0,
-      z: tr.z ? evalAnim(tr.z, rel) : 0,
-      // whole-track motion keyframes live in absolute project time
-      outer: motion
-        ? {
-            x: evalAnim(motion.x, t),
-            y: evalAnim(motion.y, t),
-            scale: evalAnim(motion.scale, t),
-            rotation: evalAnim(motion.rotation, t),
-            rotX: evalAnim(motion.rotX, t),
-            rotY: evalAnim(motion.rotY, t),
-            z: evalAnim(motion.z, t)
-          }
-        : undefined,
-      opacity: evalAnim(tr.opacity, rel) * fadeFactor(clip, rel) * trackOpacity,
+      ...layerTransformAt(clip, track, t),
+      size: manualClipSize(clip),
+      opacity: evalAnim(clip.transform.opacity, rel) * fadeFactor(clip, rel) * trackOpacity,
       crop: m
         ? ([cropV(m.left), cropV(m.top), cropV(m.right), cropV(m.bottom)] as [number, number, number, number])
         : undefined,

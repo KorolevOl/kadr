@@ -12,7 +12,7 @@ import { EDGE_TRANSITIONS } from '@/gl/edges'
 import { CtxMenu } from './CtxMenu'
 import { reverseClip, useReverseUi } from '@/engine/reverse'
 import { normalizeClip, useNormalizeUi } from '@/engine/normalize'
-import { dropPayload, dragHasMedia, dropUsable, importDrop } from '@/engine/mediaImport'
+import { dropPayload, dragHasMedia, dropUsable, importDrop, mediaDisplaySize } from '@/engine/mediaImport'
 import { useTextUi } from './TextTools'
 import { useCaptionsUi } from './CaptionsDialog'
 import { useNeonWaveUi } from './NeonWaveDialog'
@@ -493,15 +493,9 @@ function TrackMenu({ menu, onClose }: { menu: MenuState; onClose: () => void }) 
   const matchClipSize = async () => {
     if (!clipSizeSource) return
     const { project, setProjectSize } = useEditor.getState()
-    let { width, height } = clipSizeSource
     onClose()
-    // Older projects may have stored coded dimensions for rotated phone footage.
-    if ('kind' in clipSizeSource && clipSizeSource.kind === 'video' &&
-        (clipSizeSource.probeV ?? 0) < 2 && !clipSizeSource.rotation) {
-      const basics = await window.kadr.probeBasic(clipSizeSource.path).catch(() => null)
-      if (useEditor.getState().project !== project) return
-      if (basics?.rotation === 90 || basics?.rotation === 270) [width, height] = [height, width]
-    }
+    const { width, height } = 'kind' in clipSizeSource ? await mediaDisplaySize(clipSizeSource) : clipSizeSource
+    if (useEditor.getState().project !== project) return
     setProjectSize(width, height)
   }
   if (menu.kind === 'transition') {

@@ -878,6 +878,46 @@ body.kadr-popout .preview {
   color: var(--c-text);
   font: var(--fz-sm) var(--font-mono);
 }
+.clip-gizmo, .clip-gizmo-move {
+  position: absolute;
+  inset: 0;
+}
+.clip-gizmo { pointer-events: none; }
+.clip-gizmo-move, .clip-gizmo-edge {
+  pointer-events: auto;
+  touch-action: none;
+}
+.clip-gizmo-move {
+  z-index: 8;
+  cursor: move;
+}
+.clip-gizmo-edge {
+  position: absolute;
+  z-index: 13;
+  height: 12px;
+}
+.clip-gizmo-edge::before, .clip-gizmo-edge::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  pointer-events: none;
+}
+.clip-gizmo-edge::before {
+  inset-inline: 0;
+  border-top: 1px dashed var(--c-accent);
+}
+.clip-gizmo-edge::after {
+  left: 50%;
+  width: min(20px, 100%);
+  height: 4px;
+  transform: translate(-50%, -50%);
+  background: var(--c-accent);
+  border-radius: var(--r1);
+  box-shadow: 0 0 0 1px var(--c-bg-0);
+}
+.clip-gizmo-edge:hover::after, .clip-gizmo-edge:active::after {
+  background: var(--c-accent-hi);
+}
 .audio-meter {
   width: 24px;
   flex-shrink: 0;
