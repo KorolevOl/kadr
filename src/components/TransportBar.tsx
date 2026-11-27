@@ -107,7 +107,7 @@ export function TransportBar() {
         {shot === 'busy' ? <Spinner />
           : <Icon name={shot === 'ok' ? 'check' : shot === 'fail' ? 'close' : 'camera'} />}
       </button>
-      <button
+      {window.kadr.platform !== 'tauri' && <button
         className={`icon-only${popped ? ' active' : ''}`}
         data-act="popout"
         title={popped ? t('popin') : t('popout')}
@@ -115,7 +115,7 @@ export function TransportBar() {
         onClick={() => togglePreviewWindow()}
       >
         <Icon name={popped ? 'popin' : 'popout'} />
-      </button>
+      </button>}
       <OnionControls />
       <span className="time">
         {formatTime(playhead, fps)} <span className="dim">/ {formatTime(duration, fps)}</span>

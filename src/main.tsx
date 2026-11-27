@@ -45,17 +45,19 @@ import { useSoundsUi } from './components/SoundsDialog'
 
 wireLog()   // first: everything below may want to report a failure
 wireProxies()
-wireFragmentCapture()
 wireExportChime()
 wireAutosave()
 wireDropDiagnostics()
-wireModels()
 wireOnion()
-initCriticUi()
+if (window.kadr.platform !== 'tauri') {
+  wireFragmentCapture()
+  wireModels()
+  initCriticUi()
+}
 
 // Tell main which GPU WebGL really runs on (electron/gpu.ts falls back to the
 // default one when the discrete GPU was asked for and this says otherwise).
-{
+if (window.kadr.platform !== 'tauri') {
   let name = 'none'
   try {
     const gl = document.createElement('canvas').getContext('webgl2')

@@ -1,6 +1,10 @@
 node_modules/
 out/
 dist/
+/src-tauri/binaries/
+/src-tauri/generated/
+/src-tauri/gen/
+/src-tauri/target/
 *.log
 .claude/
 *.autosave.kadr

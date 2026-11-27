@@ -18,7 +18,7 @@ export const FFPROBE = process.env.KADR_FFPROBE || 'ffprobe'
     the spellings that differ between releases are picked from it (shared/ffmpegFlags.ts) */
 let versionText: Promise<string> | null = null
 function ffmpegVersionText(): Promise<string> {
-  versionText ??= execFileP(FFMPEG, ['-hide_banner', '-version']).then(({ stdout }) => stdout, () => '')
+  versionText ??= execFileP(FFMPEG, ['-hide_banner', '-version'], { windowsHide: true }).then(({ stdout }) => stdout, () => '')
   return versionText
 }
 function filterFileFlagOfFfmpeg(): Promise<FilterFileFlag> {
@@ -33,7 +33,7 @@ export async function probeMedia(path: string): Promise<ProbeResult> {
     '-print_format', 'json',
     '-show_format', '-show_streams',
     path
-  ], { maxBuffer: 16 * 1024 * 1024 })
+  ], { maxBuffer: 16 * 1024 * 1024, windowsHide: true })
   const info = JSON.parse(stdout)
   const streams: any[] = info.streams || []
   const video = streams.find((s) => s.codec_type === 'video' && !s.disposition?.attached_pic)
@@ -117,7 +117,9 @@ function videoBasics(video: any): { rotation?: number; hdr?: 'hlg' | 'pq' } {
 
 /** codec, alpha, rotation, HDR — ffprobe only (the exporter asks this of old assets) */
 export async function probeBasic(path: string): Promise<{ codec?: string; hasAlpha?: boolean; rotation?: number; hdr?: 'hlg' | 'pq' }> {
-  const { stdout } = await execFileP(FFPROBE, ['-v', 'error', '-print_format', 'json', '-show_streams', path], { maxBuffer: 16 * 1024 * 1024 })
+  const { stdout } = await execFileP(FFPROBE, ['-v', 'error', '-print_format', 'json', '-show_streams', path], {
+    maxBuffer: 16 * 1024 * 1024, windowsHide: true
+  })
   const video = (JSON.parse(stdout).streams ?? []).find((s: any) => s.codec_type === 'video' && !s.disposition?.attached_pic)
   if (!video) return {}
   const pf = String(video.pix_fmt ?? '')
@@ -221,7 +223,7 @@ export function makeProxy(
     out
   ]
   return new Promise((resolve, reject) => {
-    const child = spawn(FFMPEG, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn(FFMPEG, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
     let err = ''
     let buf = ''
     child.stdout.on('data', (c) => {
@@ -332,7 +334,7 @@ async function probeColorTags(
     const { stdout } = await execFileP(FFPROBE, [
       '-v', 'error', '-select_streams', 'v:0', '-print_format', 'json',
       '-show_entries', 'stream=width,height,r_frame_rate,color_space,color_range', src
-    ], { maxBuffer: 1024 * 1024 })
+    ], { maxBuffer: 1024 * 1024, windowsHide: true })
     s = (JSON.parse(stdout).streams || [])[0] || {}
   } catch { /* fall through to the heuristic */ }
   const known = (v?: string) => (v && v !== 'unknown' && v !== 'reserved' ? v : '')
@@ -429,7 +431,7 @@ export async function makeDecoded(
     out
   ]
   return new Promise((resolve, reject) => {
-    const child = spawn(FFMPEG, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn(FFMPEG, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
     let err = ''
     let buf = ''
     child.stdout.on('data', (c) => {
@@ -468,7 +470,7 @@ export async function makeReversed(
   onProgress?: (p: number) => void
 ): Promise<void> {
   const run = (args: string[]) =>
-    execFileP(FFMPEG, ['-y', '-v', 'error', ...args], { maxBuffer: 4 * 1024 * 1024 })
+    execFileP(FFMPEG, ['-y', '-v', 'error', ...args], { maxBuffer: 4 * 1024 * 1024, windowsHide: true })
   const range = ['-ss', start.toFixed(3), '-t', dur.toFixed(3), '-i', src]
 
   if (info.kind !== 'video') {
@@ -558,7 +560,7 @@ export function atempoChain(speed: number): string[] {
 
 function runCollect(bin: string, args: string[], maxBytes = 64 * 1024 * 1024): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
     const chunks: Buffer[] = []
     let size = 0
     let err = ''
@@ -595,7 +597,7 @@ export async function meanVolume(src: string, start: number, duration: number):
   const args = ['-v', 'info', '-nostats', '-ss', start.toFixed(3), '-t', duration.toFixed(3),
     '-i', src, '-map', 'a:0', '-af', 'volumedetect', '-f', 'null', '-']
   const err = await new Promise<string>((resolve) => {
-    const child = spawn(FFMPEG, args, { stdio: ['ignore', 'ignore', 'pipe'] })
+    const child = spawn(FFMPEG, args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true })
     let out = ''
     child.stderr.on('data', (c) => { out += c })
     child.on('close', () => resolve(out))
@@ -610,7 +612,7 @@ export async function meanVolume(src: string, start: number, duration: number):
 
 export function runStream(bin: string, args: string[], onData: (chunk: Buffer) => void): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
     let err = ''
     child.stdout.on('data', onData)
     child.stderr.on('data', (c) => { err += c })
@@ -647,8 +649,9 @@ export class RawVideoEncoder {
     bitrate: number
     out: string
   }) {
-    const child = spawn(FFMPEG, rawEncodeArgs(opts), { stdio: ['pipe', 'ignore', 'pipe'] })
+    const child = spawn(FFMPEG, rawEncodeArgs(opts), { stdio: ['pipe', 'ignore', 'pipe'], windowsHide: true })
     this.child = child
+    child.stdin!.on('error', () => { /* the write callback reports the failure */ })
     child.stderr!.on('data', (c) => { this.err += c })
     this.closed = new Promise((resolve, reject) => {
       child.on('error', reject)
@@ -668,8 +671,7 @@ export class RawVideoEncoder {
         reject(new Error(`raw encoder gone: ${this.err.slice(0, 300)}`))
         return
       }
-      if (stdin.write(data)) resolve()
-      else stdin.once('drain', resolve)
+      stdin.write(data, (err) => err ? reject(err) : resolve())
     })
   }
 
@@ -786,7 +788,7 @@ export async function premixSegments(
         '-af', segmentChain(s).join(','), '-f', 'f32le', '-ac', String(MIX_CH), '-ar', String(MIX_RATE), 'pipe:1'
       ]
       await new Promise<void>((resolve, reject) => {
-        const child = spawn(FFMPEG, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+        const child = spawn(FFMPEG, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
         let err = ''
         let pos = offset
         let carry: Buffer | null = null // f32le sample split across chunks
@@ -936,7 +938,7 @@ export class ExportMuxer {
     args.push('-t', String(job.duration), job.outputPath)
 
     return new Promise((resolve, reject) => {
-      const child = spawn(FFMPEG, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+      const child = spawn(FFMPEG, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
       this.child = child
       let err = ''
       let buf = ''

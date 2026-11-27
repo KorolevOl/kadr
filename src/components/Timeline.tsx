@@ -366,26 +366,28 @@ export function Timeline({ height }: { height: number }) {
         <button data-act="add-audio" onClick={() => useEditor.getState().addTrack('audio')}>
           <Icon name="plus" size={13} /> {t('addAudioTrack')}
         </button>
-        <TranscribeRangeButton />
-        <button
-          data-act="captions"
-          title={t('capButtonHint')}
-          onClick={() => useCaptionsUi.getState().setOpen(true)}
-        >
-          <Icon name="glow" /> {t('capButton')}
-        </button>
-        <BeatButtons />
-        <ChecksButton />
-        <button data-act="sounds" title={t('soundsButtonHint')}
-                onClick={() => useSoundsUi.getState().setOpen(true)}>
-          <Icon name="sfx" /> {t('soundsButton')}
-        </button>
-        <NeonWaveButton />
-        <button data-act="tts" title={t('ttsButtonHint')}
-                onClick={() => useTtsUi.getState().openSettings()}>
-          <Icon name="speech" /> {t('ttsButton')}
-        </button>
-        <DefectButtons />
+        {window.kadr.platform !== 'tauri' && <>
+          <TranscribeRangeButton />
+          <button
+            data-act="captions"
+            title={t('capButtonHint')}
+            onClick={() => useCaptionsUi.getState().setOpen(true)}
+          >
+            <Icon name="glow" /> {t('capButton')}
+          </button>
+          <BeatButtons />
+          <ChecksButton />
+          <button data-act="sounds" title={t('soundsButtonHint')}
+                  onClick={() => useSoundsUi.getState().setOpen(true)}>
+            <Icon name="sfx" /> {t('soundsButton')}
+          </button>
+          <NeonWaveButton />
+          <button data-act="tts" title={t('ttsButtonHint')}
+                  onClick={() => useTtsUi.getState().openSettings()}>
+            <Icon name="speech" /> {t('ttsButton')}
+          </button>
+          <DefectButtons />
+        </>}
         <span className="dim hint-inline" title={t('dropHint')}>{t('dropHint')}</span>
         <span className="flex1" />
         <label className="zoom-ctl">
